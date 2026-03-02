@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام مزادات أوقاف المساجد المطور</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- html2pdf for Arabic PDF Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@100;400;700;900&display=swap');
+        
+        body { font-family: 'Noto Sans Arabic', sans-serif; background-color: #f5f5f4; scroll-behavior: smooth; }
+        
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f5f5f4; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 10px; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+
+        .plot-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .plot-card:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
+
+        /* Report Styles */
+        #report-template { display: none; padding: 30px; background: white; direction: rtl; }
+        .report-header { text-align: center; border-bottom: 3px solid #065f46; margin-bottom: 25px; padding-bottom: 15px; }
+        .report-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .report-table th, .report-table td { border: 1px solid #d1d5db; padding: 12px; text-align: center; font-size: 14px; }
+        .report-table th { background-color: #f3f4f6; color: #065f46; font-weight: bold; }
+
+        .countdown-box {
+            background: linear-gradient(135deg, #065f46 0%, #064e3b 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .video-container {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 ratio */
+            height: 0;
+            overflow: hidden;
+            border-radius: 24px;
+        }
+        .video-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        select, input[type="datetime-local"] {
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: left 1rem center;
+            background-size: 1em;
+        }
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+            opacity: 0; /* Hide default icon */
+        }
+    </style>
+</head>
+<body class="min-h-screen text-stone-800 text-right">
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-white z-[200] flex items-center justify-center border-t-8 border-emerald-800 transition-opacity duration-500">
+        <div class="flex flex-col items-center gap-4 text-center">
+            <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-emerald-700 border-stone-200 shadow-xl"></div>
+            <p id="loading-text" class="text-emerald-800 font-bold animate-pulse text-lg">جاري الاتصال بالنظام...</p>
+            <p id="error-display" class="hidden text-red-600 font-bold text-sm bg-red-50 p-3 rounded-xl border border-red-200"></p>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="bg-emerald-800 text-white p-4 shadow-xl sticky top-0 z-50 border-b border-emerald-900">
+        <div class="max-w-6xl mx-auto flex justify-between items-center text-right">
+            <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.reload()">
+                <div class="bg-white/10 p-2 rounded-xl shadow-inner border border-white/5">
+                    <i class="ph ph-gavel text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-black tracking-tight leading-none text-right text-white">أوقاف المساجد</h1>
+                    <p class="text-[10px] opacity-70 font-bold mt-1 text-right text-emerald-100">بلدة منال - المزايدة الإلكترونية</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <div id="user-info-badge" class="hidden items-center gap-2 text-sm bg-emerald-900/50 pl-1 pr-3 py-1.5 rounded-full border border-white/10 shadow-sm">
+                    <i class="ph ph-user-circle text-xl"></i>
+                    <span id="header-user-name" class="font-bold text-white"></span>
+                    <span id="header-role-badge" class="hidden bg-amber-400 text-black px-2 py-0.5 rounded text-[10px] font-black mr-1 uppercase text-center"></span>
+                    <button id="btn-user-logout" class="mr-2 text-emerald-100 hover:text-white flex items-center gap-1 bg-emerald-700/50 px-2 py-1 rounded-lg transition-all hover:bg-red-500/80">
+                        <i class="ph ph-sign-out text-base"></i>
+                        <span class="text-xs font-bold">خروج</span>
+                    </button>
+                </div>
+                <button id="btn-show-admin-login" class="p-2 bg-emerald-700 hover:bg-emerald-600 rounded-xl transition-colors text-emerald-100 border border-emerald-600/50 shadow-md">
+                    <i class="ph ph-lock-key text-xl"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto p-4 py-8 space-y-8 animate-fade-in text-right">
+        
+        <!-- Auth Gateway View -->
+        <div id="gate-view" class="hidden space-y-8 py-10">
+            <!-- Login -->
+            <div id="section-login" class="max-w-md mx-auto bg-white p-8 rounded-[48px] shadow-2xl border border-stone-200 text-center space-y-6 hidden animate-fade-in">
+                <i class="ph ph-user-key text-6xl text-emerald-700 mb-2 block mx-auto"></i>
+                <h2 class="text-2xl font-black text-stone-800">تسجيل الدخول للمزايدة</h2>
+                <form id="form-login" class="space-y-4">
+                    <input type="tel" id="login-phone" required class="w-full border-2 border-stone-100 rounded-2xl p-4 outline-none focus:border-emerald-500 transition-all text-lg font-bold text-right shadow-sm" placeholder="رقم الهاتف (9xxxxxxx)" dir="ltr" />
+                    <input type="password" id="login-password" required class="w-full border-2 border-stone-100 rounded-2xl p-4 outline-none focus:border-emerald-500 transition-all text-lg text-center tracking-[0.5em] shadow-sm" placeholder="••••" dir="ltr" />
+                    <p id="login-error" class="text-red-500 text-xs font-bold hidden text-center bg-red-50 p-3 rounded-2xl border border-red-100"></p>
+                    <button type="submit" id="btn-submit-login" class="w-full bg-stone-900 hover:bg-black text-white font-black py-4 rounded-2xl shadow-xl transition-all active:scale-95 text-lg">دخول للمزايدة</button>
+                </form>
+                <button id="btn-show-register" class="w-full text-sm font-black text-emerald-700 hover:bg-emerald-50 py-4 rounded-2xl transition-all">ليس لديك حساب؟ طلب عضوية جديدة</button>
+            </div>
+
+            <!-- Register -->
+            <div id="section-register" class="max-w-md mx-auto bg-white p-8 rounded-[48px] shadow-2xl border border-stone-200 text-center space-y-6 hidden animate-fade-in">
+                <i class="ph ph-user-plus text-6xl text-emerald-700 mb-2 block mx-auto"></i>
+                <h2 class="text-2xl font-black text-stone-800">طلب فتح عضوية جديدة</h2>
+                <p class="text-stone-400 text-sm font-bold text-center">يرجى تعبئة بياناتك لتقوم الإدارة بمراجعتها</p>
+                <form id="form-register" class="space-y-4 text-right">
+                    <input type="text" id="reg-name" required class="w-full border-2 border-stone-100 rounded-2xl p-4 outline-none focus:border-emerald-500 transition-all text-right font-bold shadow-sm" placeholder="الاسم الثلاثي والقبيلة" />
+                    <input type="tel" id="reg-phone" required class="w-full border-2 border-stone-100 rounded-2xl p-4 outline-none focus:border-emerald-500 transition-all text-right font-bold shadow-sm" placeholder="رقم الهاتف (9xxxxxxx)" dir="ltr" />
+                    <p id="reg-error" class="text-red-500 text-xs font-bold hidden text-center bg-red-50 p-3 rounded-2xl border border-red-100"></p>
+                    <button type="submit" id="btn-submit-register" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-2xl shadow-xl transition-all text-center">إرسال الطلب</button>
+                </form>
+                <button id="btn-show-login-alt" class="w-full text-xs font-bold text-stone-500 hover:text-stone-800 transition-all py-2 text-center underline">لديك بيانات دخول؟ تسجيل الدخول</button>
+            </div>
+
+            <!-- Pending -->
+            <div id="section-pending" class="max-w-md mx-auto bg-amber-50 p-10 rounded-[48px] border-2 border-amber-200 text-center shadow-xl hidden animate-fade-in text-right">
+                <i class="ph ph-clock-countdown text-7xl text-amber-500 mb-4 block animate-pulse mx-auto"></i>
+                <h3 class="text-2xl font-black text-amber-900 mb-2 text-center">طلبك قيد المراجعة</h3>
+                <p class="text-amber-800 text-sm mb-10 font-bold text-center">ستقوم الإدارة بمراجعة طلبك وتزويدك برقم سري عبر الواتساب فور تفعيل الحساب.</p>
+                <div class="flex flex-col gap-4 pt-6 border-t border-amber-200">
+                    <button id="btn-pending-to-login" class="bg-amber-600 text-white font-black py-4 rounded-2xl shadow-lg hover:bg-amber-700 transition-all">شاشة دخول الأعضاء</button>
+                    <button id="btn-cancel-reg" class="text-xs font-bold text-stone-400 py-2 text-center underline hover:text-stone-600 transition-all">تسجيل عضو جديد (طلب آخر)</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Auction Content -->
+        <div id="main-view" class="hidden space-y-10">
+            <!-- Dashboard (Staff) -->
+            <div id="admin-dashboard" class="hidden bg-stone-900 text-white rounded-[32px] shadow-2xl overflow-hidden border border-stone-700 mb-10 text-right animate-fade-in text-right">
+                <div class="p-5 border-b border-stone-700 flex justify-between items-center bg-stone-800/50">
+                    <h2 id="dashboard-title" class="font-black flex items-center gap-2 text-emerald-400"><i class="ph ph-shield-star text-2xl"></i> لوحة التحكم</h2>
+                    <button id="btn-dashboard-home" class="px-4 py-2 rounded-xl text-xs font-bold bg-stone-700 hover:bg-stone-600 transition-all flex items-center gap-2">
+                        <i class="ph ph-grid-four"></i> الرئيسية
+                    </button>
+                </div>
+                <div class="flex bg-stone-800 overflow-x-auto no-scrollbar" id="dashboard-tabs-container">
+                    <button id="tab-plots" class="flex-1 min-w-[120px] p-4 font-black transition-all border-b-2 border-transparent text-center">إدارة الأراضي</button>
+                    <button id="tab-users" class="flex-1 min-w-[120px] p-4 font-black transition-all border-b-2 border-transparent text-center">إدارة الأعضاء</button>
+                    <button id="tab-settings" class="flex-1 min-w-[120px] p-4 font-black transition-all border-b-2 border-transparent text-center">إعدادات النظام</button>
+                    <button id="tab-add-manual" class="flex-1 min-w-[120px] p-4 font-black transition-all border-b-2 border-transparent text-center">إضافة يدوية</button>
+                </div>
+                
+                <div class="p-6 bg-stone-50 max-h-[600px] overflow-y-auto text-stone-800 custom-scrollbar text-right">
+                    <div id="admin-plots-list" class="space-y-4">
+                        <div class="flex flex-wrap justify-between items-center gap-4 mb-4">
+                            <h3 class="font-black text-emerald-900 text-lg">قائمة قطع الأراضي</h3>
+                            <div class="flex gap-2">
+                                <button id="btn-add-default-plots" class="bg-amber-100 text-amber-800 px-4 py-2 rounded-xl text-xs font-black border border-amber-200 transition-all hover:bg-amber-200 shadow-sm">إدراج الـ 12 قطعة الافتراضية</button>
+                                <button id="btn-open-add-plot" class="bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-black shadow-lg hover:bg-emerald-700 flex items-center gap-2 transition-all">إضافة قطعة جديدة</button>
+                            </div>
+                        </div>
+                        <div id="admin-plots-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-right"></div>
+                    </div>
+                    <div id="admin-users-list" class="space-y-3 hidden"></div>
+                    <div id="admin-manual-form" class="hidden max-w-lg mx-auto py-4">
+                        <div class="bg-white p-8 rounded-3xl border-2 border-stone-100 shadow-sm text-right">
+                            <h3 class="font-black mb-6 flex items-center gap-3 text-emerald-800 text-xl justify-end">إضافة عضو جديد <i class="ph ph-user-plus text-2xl"></i></h3>
+                            <form id="form-manual-add" class="space-y-4">
+                                <input type="text" id="manual-name" placeholder="الاسم الكامل" required class="w-full border-2 border-stone-100 rounded-2xl p-4 outline-none focus:border-emerald-500 transition-all text-right font-bold shadow-sm" />
+                                <input type="tel" id="manual-phone" placeholder="رقم الهاتف" required class="w-full border-2 border-stone-100 rounded-2xl p-4 outline-none focus:border-emerald-500 transition-all text-right font-bold shadow-sm" dir="ltr" />
+                                <input type="text" id="manual-pass" placeholder="الرقم السري (اتركه للتوليد التلقائي)" class="w-full border-2 border-stone-100 rounded-2xl p-4 outline-none focus:border-emerald-500 transition-all text-right font-bold shadow-sm" />
+                                <div class="flex items-center gap-3 py-2 justify-end">
+                                    <label for="manual-is-committee" class="text-sm font-bold text-stone-700">تعيين كعضو في "لجنة الأوقاف"</label>
+                                    <input type="checkbox" id="manual-is-committee" class="w-6 h-6 accent-emerald-600" />
+                                </div>
+                                <button type="submit" class="w-full bg-emerald-600 text-white font-black py-4 rounded-2xl shadow-xl hover:bg-emerald-700 transition-all text-center">حفظ وتفعيل الحساب</button>
+                            </form>
+                        </div>
+                    </div>
+                    <div id="admin-auction-settings" class="hidden max-w-md mx-auto py-4 text-center">
+                        <div class="bg-white p-8 rounded-3xl border-2 border-stone-100 shadow-sm text-center">
+                            <i class="ph ph-gear-six text-5xl text-stone-300 mb-4 block animate-spin-slow"></i>
+                            <h3 class="font-black text-xl mb-4 text-center">إعدادات النظام</h3>
+                            <p class="text-stone-400 text-sm mb-6 leading-relaxed text-right">يتم التحكم في كل مزاد وسعر بدايته ووقته بشكل مستقل من تبويب إدارة الأراضي لكل قطعة على حدة.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Plots Grid View -->
+            <div id="public-plots-view" class="space-y-8 text-right animate-fade-in">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4 text-right">
+                    <h2 class="text-3xl font-black text-emerald-900 border-r-8 border-emerald-600 pr-4 uppercase text-right">الأراضي المعروضة للمزايدة</h2>
+                    <div class="flex gap-3 text-[10px] font-black uppercase tracking-tighter bg-white px-4 py-2 rounded-full border border-stone-200 shadow-sm">
+                        <span class="flex items-center gap-1 text-emerald-600"><i class="ph ph-circle-fill text-[8px] animate-pulse"></i> مفتوح</span>
+                        <span class="flex items-center gap-1 text-amber-500"><i class="ph ph-circle-fill text-[8px]"></i> قادم</span>
+                        <span class="flex items-center gap-1 text-stone-400"><i class="ph ph-circle-fill text-[8px]"></i> منتهي</span>
+                    </div>
+                </div>
+                <div id="plots-gallery" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 text-right"></div>
+            </div>
+
+            <!-- Detailed Bidding View -->
+            <div id="plot-detail-view" class="hidden space-y-8 animate-fade-in text-right">
+                <button id="btn-back-to-gallery" class="flex items-center gap-2 text-emerald-700 font-black hover:bg-emerald-100 px-6 py-2 rounded-2xl transition-all border border-emerald-200 shadow-sm bg-white text-center">
+                    <i class="ph ph-arrow-right"></i> العودة لقائمة الأراضي
+                </button>
+                <div id="active-plot-content" class="grid grid-cols-1 lg:grid-cols-3 gap-8 text-right relative"></div>
+            </div>
+        </div>
+
+        <!-- Global HUD Countdown (Active Plot only) -->
+        <div id="countdown-container" class="hidden animate-fade-in fixed bottom-6 left-6 z-40 text-right">
+            <div class="countdown-box border-b-4 border-emerald-900 shadow-2xl">
+                <p id="countdown-label" class="text-[9px] font-bold uppercase tracking-widest opacity-70 mb-2 text-center text-white">المتبقي</p>
+                <div class="flex justify-center items-center gap-3 text-xl font-black tabular-nums text-right" dir="ltr">
+                    <div class="flex flex-col items-center bg-black/10 px-2 py-1 rounded-lg"><span id="cd-days">00</span><span class="text-[8px] opacity-60 uppercase">يوم</span></div>
+                    <span class="opacity-30">:</span>
+                    <div class="flex flex-col items-center bg-black/10 px-2 py-1 rounded-lg"><span id="cd-hours">00</span><span class="text-[8px] opacity-60 uppercase">ساعة</span></div>
+                    <span class="opacity-30">:</span>
+                    <div class="flex flex-col items-center bg-black/10 px-2 py-1 rounded-lg"><span id="cd-mins">00</span><span class="text-[8px] opacity-60 uppercase">دقيقة</span></div>
+                    <span class="opacity-30">:</span>
+                    <div class="flex flex-col items-center bg-emerald-500/50 px-2 py-1 rounded-lg shadow-inner"><span id="cd-secs" class="text-white">00</span><span class="text-[8px] opacity-90 uppercase text-emerald-100">ثانية</span></div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal: Admin Login -->
+    <div id="admin-login-modal" class="fixed inset-0 bg-black/90 items-center justify-center z-[110] p-4 backdrop-blur-xl hidden animate-fade-in text-right">
+        <div class="bg-white rounded-[48px] shadow-2xl w-full max-w-sm overflow-hidden border border-white/20 text-right">
+            <div class="bg-stone-900 p-8 text-white flex flex-col items-center gap-4 text-center">
+                <div class="bg-emerald-600 p-4 rounded-3xl shadow-xl shadow-emerald-500/20"><i class="ph ph-lock-laminated text-4xl"></i></div>
+                <h3 class="font-black text-2xl text-center">دخول الإدارة</h3>
+            </div>
+            <form id="form-admin-login" class="p-10 space-y-6 text-right">
+                <input type="password" id="admin-password" class="w-full border-2 border-stone-100 rounded-3xl p-5 focus:ring-0 focus:border-stone-900 outline-none text-center text-4xl tracking-[0.5em] font-black transition-all bg-stone-50" placeholder="••••" dir="ltr" />
+                <p id="admin-login-error" class="text-red-500 text-xs font-bold hidden text-center bg-red-50 p-3 rounded-2xl border border-red-100"></p>
+                <button type="submit" class="w-full bg-stone-900 hover:bg-black text-white font-black py-5 rounded-3xl shadow-2xl transition-all transform active:scale-95 text-lg text-center">دخول النظام</button>
+                <button type="button" id="btn-cancel-admin-login" class="w-full text-stone-400 font-bold py-2 text-sm text-center transition-all hover:text-stone-600">إلغاء</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Plot Form -->
+    <div id="admin-plot-form" class="hidden fixed inset-0 bg-black/80 z-[120] items-center justify-center p-4 backdrop-blur-sm animate-fade-in text-right">
+        <div class="bg-white rounded-[40px] shadow-2xl w-full max-w-2xl overflow-hidden border border-white/20 text-right">
+            <div class="bg-emerald-800 p-6 text-white flex justify-between items-center text-right text-right">
+                <h3 class="font-black text-xl flex items-center gap-3"><i class="ph ph-map-pin text-2xl"></i> بيانات القطعة وجدولة المزاد</h3>
+                <button id="btn-close-plot-form" class="text-emerald-100 hover:text-white transition-all"><i class="ph ph-x-circle text-3xl"></i></button>
+            </div>
+            <form id="form-plot-save" class="p-8 space-y-4 overflow-y-auto max-h-[80vh] custom-scrollbar text-right">
+                <input type="hidden" id="plot-id" />
+                <div class="space-y-1 text-right">
+                    <label class="text-xs font-black text-stone-400 mr-2 uppercase">اسم القطعة</label>
+                    <input type="text" id="plot-title" required class="w-full border-2 border-stone-50 rounded-2xl p-4 outline-none focus:border-emerald-500 transition-all bg-stone-50 font-bold text-right shadow-sm" />
+                </div>
+                <div class="grid grid-cols-2 gap-4 text-right">
+                    <div class="space-y-1">
+                        <label class="text-xs font-black text-stone-400 mr-2 uppercase text-right text-right text-right">رابط بوستر الوقف (URL)</label>
+                        <input type="url" id="plot-poster" class="w-full border-2 border-stone-50 rounded-2xl p-4 outline-none focus:border-emerald-500 transition-all bg-stone-50 font-bold text-right shadow-sm" placeholder="https://..." />
+                    </div>
+                    <div class="space-y-1 text-right text-right">
+                        <label class="text-xs font-black text-stone-400 mr-2 uppercase">رابط فيديو (YouTube)</label>
+                        <input type="url" id="plot-video" class="w-full border-2 border-stone-50 rounded-2xl p-4 outline-none focus:border-emerald-500 transition-all bg-stone-50 font-bold text-right shadow-sm" placeholder="https://youtu.be/..." />
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4 text-right">
+                    <div class="space-y-1 text-right text-right text-right">
+                        <label class="text-xs font-black text-stone-400 mr-2 uppercase text-right text-right text-right">المكان</label>
+                        <select id="plot-location" class="w-full border-2 border-stone-50 rounded-2xl p-4 outline-none focus:border-emerald-500 transition-all bg-stone-50 font-bold text-right shadow-sm cursor-pointer">
+                            <option value="بلدة منال">بلدة منال</option>
+                            <option value="جلبة الشيع">جلبة الشيع</option>
+                            <option value="بني خليل">بني خليل</option>
+                        </select>
+                    </div>
+                    <div class="space-y-1 text-right text-right text-right">
+                        <label class="text-xs font-black text-stone-400 mr-2 uppercase">سعر البداية (ر.ع)</label>
+                        <input type="number" id="plot-start-price" required class="w-full border-2 border-stone-50 rounded-2xl p-4 outline-none focus:border-emerald-500 transition-all bg-stone-50 font-bold text-right shadow-sm" />
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4 text-right text-right">
+                    <div class="space-y-1 text-right">
+                        <label class="text-xs font-black text-stone-400 mr-2 uppercase text-right">ساعات الماء</label>
+                        <select id="plot-water" class="w-full border-2 border-stone-50 rounded-2xl p-4 outline-none focus:border-emerald-500 transition-all bg-stone-50 font-bold text-right shadow-sm cursor-pointer">
+                            <option value="1 ساعة">1 ساعة</option>
+                            <option value="2 ساعة">2 ساعة</option>
+                            <option value="3 ساعات">3 ساعات</option>
+                            <option value="4 ساعات">4 ساعات</option>
+                            <option value="5 ساعات">5 ساعات</option>
+                            <option value="10 ساعات">10 ساعات</option>
+                        </select>
+                    </div>
+                    <div class="space-y-1 text-right text-right text-right">
+                        <label class="text-xs font-black text-stone-400 mr-2 uppercase text-right text-right">عدد النخيل</label>
+                        <input type="text" id="plot-palms" class="w-full border-2 border-stone-50 rounded-2xl p-4 outline-none focus:border-emerald-500 transition-all bg-stone-50 font-bold text-right shadow-sm" placeholder="أدخل العدد (مثال: 15 نخلة)" />
+                    </div>
+                </div>
+                
+                <div class="p-4 bg-stone-100 rounded-2xl border-2 border-stone-200 mt-4">
+                    <h4 class="font-bold text-stone-800 mb-3 flex items-center gap-2"><i class="ph ph-clock-countdown"></i> جدولة المزاد</h4>
+                    <div class="grid grid-cols-2 gap-4 text-right text-right text-right">
+                        <div class="space-y-1 text-right text-right text-right">
+                            <label class="text-xs font-black text-stone-500 mr-2 uppercase text-right">وقت بدء المزاد (يفتح تلقائياً)</label>
+                            <input type="datetime-local" id="plot-start-datetime" required class="w-full border-2 border-stone-200 rounded-xl p-3 outline-none focus:border-emerald-500 transition-all bg-white font-bold text-right shadow-sm" />
+                        </div>
+                        <div class="space-y-1 text-right text-right text-right">
+                            <label class="text-xs font-black text-stone-500 mr-2 uppercase text-right">مدة المزاد (بالأيام)</label>
+                            <input type="number" id="plot-duration-days" min="1" value="7" required class="w-full border-2 border-stone-200 rounded-xl p-3 outline-none focus:border-emerald-500 transition-all bg-white font-bold text-right shadow-sm" placeholder="أدخل عدد الأيام" />
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full bg-emerald-700 text-white font-black py-4 rounded-2xl shadow-xl hover:bg-emerald-800 transition-all mt-4 text-center">حفظ جدولة القطعة</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Hidden Report Template -->
+    <div id="report-template">
+        <div class="report-header">
+            <h1 style="font-size: 24px; font-weight: 900; color: #064e3b; margin-bottom: 5px; text-align: center;">تقرير مزاد أوقاف المساجد</h1>
+            <p id="rep-plot-name" style="font-size: 18px; font-weight: bold; margin-top: 5px; text-align: center;"></p>
+            <p id="rep-date" style="font-size: 14px; margin-top: 5px; color: #666; text-align: center;"></p>
+        </div>
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th>م</th>
+                    <th>اسم المزايد</th>
+                    <th>رقم الهاتف</th>
+                    <th>المبلغ (ر.ع)</th>
+                    <th>التاريخ والوقت</th>
+                </tr>
+            </thead>
+            <tbody id="rep-table-body"></tbody>
+        </table>
+    </div>
+
+    <!-- Application Script -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, collection, onSnapshot, addDoc, updateDoc, serverTimestamp, deleteDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Environment Setup
+        const firebaseConfig = {
+            apiKey: "AIzaSyDLxMMT9pGh1b2FJcfZ9Guf5OqU0eA18w0",
+            authDomain: "aoqaf-23484.firebaseapp.com",
+            projectId: "aoqaf-23484",
+            storageBucket: "aoqaf-23484.firebasestorage.app",
+            messagingSenderId: "116710495148",
+            appId: "1:116710495148:web:d1f12439aaf934acb2e009",
+            measurementId: "G-CP71DYKRP7"
+        };
+        const appId = "aoqaf-23484";
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // --- State Management ---
+        let plots = [];
+        let allBids = [];
+        let usersList = [];
+        let currentUser = null;
+        let appProfile = null;
+        let activePlotId = null; 
+        let adminTab = 'tab-plots';
+        let currentAuthView = localStorage.getItem('auth_view_preference') || 'login';
+        let timerInterval = null;
+
+        // Firebase Subscriptions Tracking
+        let unsubProfile = null;
+        let unsubPlots = null;
+        let unsubBids = null;
+        let unsubUsers = null;
+
+        // --- Core Helpers ---
+
+        function bindClick(id, fn) {
+            const el = document.getElementById(id);
+            if (el) el.onclick = fn;
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `fixed bottom-10 right-10 ${type === 'error' ? 'bg-red-600' : 'bg-stone-800'} text-white px-8 py-4 rounded-[30px] shadow-2xl z-[200] font-black animate-fade-in flex items-center gap-3 border border-white/10 text-right`;
+            toast.innerHTML = `<i class="ph ph-${type === 'error' ? 'warning' : 'info'} text-2xl ${type === 'info' ? 'text-emerald-400' : ''}"></i> <span>${message}</span>`;
+            document.body.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 5000);
+        }
+
+        function formatDate(ts) {
+            if (!ts) return "--:--";
+            const date = ts.toDate ? ts.toDate() : new Date(ts);
+            return date.toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true });
+        }
+
+        function getYouTubeEmbedUrl(url) {
+            if (!url) return '';
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length == 11) ? `https://www.youtube.com/embed/${match[2]}` : '';
+        }
+
+        // --- Countdown & Timing Engine ---
+        function updateCountdownUI() {
+            if (!activePlotId) { 
+                const cd = document.getElementById('countdown-container');
+                if(cd) cd.classList.add('hidden'); return; 
+            }
+            const plot = plots.find(p => p.id === activePlotId);
+            if (!plot || !plot.isActive) { 
+                const cd = document.getElementById('countdown-container');
+                if(cd) cd.classList.add('hidden'); return; 
+            }
+
+            const now = Date.now();
+            let distance = 0;
+            let labelText = "المتبقي لانتهاء المزاد";
+
+            // Plot State Determination
+            if (plot.startTime && plot.startTime > now) {
+                distance = plot.startTime - now;
+                labelText = "يفتح المزاد بعد";
+            } else if (plot.endTime > now) {
+                distance = plot.endTime - now;
+                labelText = "يغلق المزاد بعد";
+            } else {
+                const cd = document.getElementById('countdown-container');
+                if(cd) cd.classList.add('hidden'); 
+                
+                // Optional: Auto-refresh view if it just closed while user is watching
+                const bidArea = document.getElementById('bidding-area-controls');
+                if (bidArea && !bidArea.classList.contains('hidden')) {
+                    renderPlotDetail(); // re-render to show closed state
+                }
+                return; 
+            }
+            
+            const cd = document.getElementById('countdown-container');
+            if(cd) cd.classList.remove('hidden');
+            
+            const lbl = document.getElementById('countdown-label');
+            if (lbl) lbl.textContent = labelText;
+            
+            const d = Math.floor(distance / (1000 * 60 * 60 * 24));
+            const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((distance % (1000 * 60)) / 1000);
+            
+            const elDays = document.getElementById('cd-days');
+            const elHours = document.getElementById('cd-hours');
+            const elMins = document.getElementById('cd-mins');
+            const elSecs = document.getElementById('cd-secs');
+
+            if(elDays) elDays.textContent = d.toString().padStart(2, '0');
+            if(elHours) elHours.textContent = h.toString().padStart(2, '0');
+            if(elMins) elMins.textContent = m.toString().padStart(2, '0');
+            if(elSecs) elSecs.textContent = s.toString().padStart(2, '0');
+        }
+
+        function setAuthView(v) {
+            currentAuthView = v; 
+            localStorage.setItem('auth_view_preference', v); 
+            updateUIVisibility(); 
+        }
+
+        function updateUIVisibility() {
+            const isAuth = localStorage.getItem('is_authenticated') === 'true';
+            const isAdmin = appProfile?.isAdmin;
+            const isCommittee = appProfile?.isCommittee;
+            const isLoggedIn = appProfile && (isAdmin || isCommittee || (appProfile.isActive && isAuth));
+
+            const gateView = document.getElementById('gate-view');
+            const mainView = document.getElementById('main-view');
+
+            if (!isLoggedIn) {
+                if(gateView) gateView.classList.remove('hidden');
+                if(mainView) mainView.classList.add('hidden');
+                
+                document.getElementById('section-login')?.classList.add('hidden');
+                document.getElementById('section-register')?.classList.add('hidden');
+                document.getElementById('section-pending')?.classList.add('hidden');
+                
+                if (appProfile && !appProfile.isActive && !isAuth) {
+                    document.getElementById('section-pending')?.classList.remove('hidden');
+                } else {
+                    if (currentAuthView === 'login') {
+                        document.getElementById('section-login')?.classList.remove('hidden');
+                    } else {
+                        document.getElementById('section-register')?.classList.remove('hidden');
+                    }
+                }
+            } else {
+                if(gateView) gateView.classList.add('hidden');
+                if(mainView) mainView.classList.remove('hidden');
+                
+                if (activePlotId) {
+                    document.getElementById('public-plots-view')?.classList.add('hidden');
+                    document.getElementById('plot-detail-view')?.classList.remove('hidden');
+                    renderPlotDetail();
+                } else {
+                    document.getElementById('public-plots-view')?.classList.remove('hidden');
+                    document.getElementById('plot-detail-view')?.classList.add('hidden');
+                    renderPlotsGallery();
+                }
+                
+                const adminDash = document.getElementById('admin-dashboard');
+                if (adminDash) {
+                    adminDash.classList.toggle('hidden', !isAdmin && !isCommittee);
+                    if (isAdmin || isCommittee) renderAdminPanel();
+                }
+            }
+
+            const userBadge = document.getElementById('user-info-badge');
+            const adminTrigger = document.getElementById('btn-show-admin-login');
+            if (isLoggedIn) {
+                if(userBadge) userBadge.classList.replace('hidden', 'flex');
+                if(document.getElementById('header-user-name')) document.getElementById('header-user-name').textContent = appProfile.name;
+                const badge = document.getElementById('header-role-badge');
+                if (badge) {
+                    if (isAdmin) { badge.textContent = 'إدارة'; badge.classList.remove('hidden'); }
+                    else if (isCommittee) { badge.textContent = 'لجنة الأوقاف'; badge.classList.remove('hidden'); }
+                    else { badge.classList.add('hidden'); }
+                }
+                if(adminTrigger) adminTrigger.classList.add('hidden');
+            } else {
+                if(userBadge) userBadge.classList.replace('flex', 'hidden');
+                if(adminTrigger) adminTrigger.classList.remove('hidden');
+            }
+        }
+
+        // --- Actions ---
+
+        async function handleRegister(e) {
+            e.preventDefault();
+            if (!auth.currentUser) return showToast("يجب الاتصال بالشبكة أولاً", "error");
+            
+            const btn = document.getElementById('btn-submit-register');
+            if(btn) { btn.disabled = true; btn.textContent = "جاري الإرسال..."; }
+
+            const name = document.getElementById('reg-name').value.trim();
+            const phone = document.getElementById('reg-phone').value.trim();
+            if (!name || !phone) return;
+            
+            const uid = `u-${Date.now()}-${Math.floor(Math.random() * 1000)}`; 
+            try {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', uid), { 
+                    uid, name, phone, isActive: false, isAdmin: false, isCommittee: false, registeredAt: serverTimestamp() 
+                });
+                localStorage.setItem('guest_auction_uid', uid); 
+                setAuthView('pending');
+                showToast("تم إرسال طلب العضوية بنجاح", "info");
+                setupProfileListener(uid);
+            } catch(err) { 
+                console.error(err);
+                showToast("حدث خطأ أثناء الإرسال", "error"); 
+            } finally {
+                if(btn) { btn.disabled = false; btn.textContent = "إرسال الطلب"; }
+            }
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            
+            const btn = document.getElementById('btn-submit-login');
+            if(btn) { btn.disabled = true; btn.textContent = "جاري التحقق..."; }
+
+            const phone = document.getElementById('login-phone').value.trim();
+            const pass = document.getElementById('login-password').value.trim();
+            try {
+                const snap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'users'));
+                let found = null;
+                snap.forEach(d => { const data = d.data(); if (data.phone === phone && data.password === pass) found = data; });
+                if (found && (found.isActive || found.isCommittee)) {
+                    localStorage.setItem('guest_auction_uid', found.uid); 
+                    localStorage.setItem('is_authenticated', 'true'); 
+                    showToast("تم تسجيل الدخول بنجاح", "info");
+                    setupProfileListener(found.uid);
+                } else {
+                    showToast("بيانات غير صحيحة أو حساب غير مفعل", "error");
+                }
+            } catch(err) { 
+                console.error(err);
+                showToast("خطأ في الاتصال", "error"); 
+            } finally {
+                if(btn) { btn.disabled = false; btn.textContent = "دخول للمزايدة"; }
+            }
+        }
+
+        async function handleAdminLogin(e) {
+            e.preventDefault();
+            const p = document.getElementById('admin-password').value;
+            if (p === 'akm1983') {
+                if (!auth.currentUser) return showToast("يجب الاتصال بالشبكة أولاً", "error");
+                
+                const adminUid = `admin-${auth.currentUser.uid}`;
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', adminUid), { 
+                        uid: adminUid, name: 'إدارة النظام', phone: '-', isActive: true, isAdmin: true 
+                    }, { merge: true });
+                    
+                    localStorage.setItem('guest_auction_uid', adminUid); 
+                    localStorage.setItem('is_authenticated', 'true'); 
+                    
+                    const modal = document.getElementById('admin-login-modal');
+                    if(modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+                    
+                    showToast("تم الدخول بصلاحيات الإدارة", "info");
+                    setupProfileListener(adminUid);
+                } catch(err) { 
+                    console.error(err);
+                    showToast("خطأ في تعيين الصلاحيات", "error"); 
+                }
+            } else showToast("كلمة مرور خطأ", "error");
+        }
+
+        async function handleManualAdd(e) {
+            e.preventDefault();
+            if (!auth.currentUser) return;
+            const uid = `manual-${Date.now()}`;
+            const inputPass = document.getElementById('manual-pass').value.trim();
+            let finalPass = inputPass;
+            if (!finalPass) {
+                const activeUsers = usersList.filter(u => u.isActive && u.password);
+                const lastPass = activeUsers.length > 0 ? Math.max(...activeUsers.map(u => parseInt(u.password) || 0)) : 1000;
+                finalPass = (lastPass + 1).toString();
+            }
+            try {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', uid), { 
+                    uid, name: document.getElementById('manual-name').value, phone: document.getElementById('manual-phone').value, password: finalPass, isActive: true, isCommittee: document.getElementById('manual-is-committee').checked, isAdmin: false, registeredAt: serverTimestamp() 
+                });
+                showToast(`تم التفعيل بالرقم السري: ${finalPass}`); e.target.reset(); adminTab = 'tab-users'; renderAdminPanel();
+            } catch(err) { showToast("فشل الحفظ", "error"); }
+        }
+
+        async function handlePlotSave(e) {
+            e.preventDefault();
+            if (!auth.currentUser) return;
+            const id = document.getElementById('plot-id').value || `plot-${Date.now()}`;
+            
+            // Scheduling Logic
+            const startIso = document.getElementById('plot-start-datetime').value;
+            const startTimeMs = startIso ? new Date(startIso).getTime() : Date.now();
+            const days = parseInt(document.getElementById('plot-duration-days').value) || 7;
+            const endTimeMs = startTimeMs + (days * 24 * 60 * 60 * 1000);
+
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'plots', id), {
+                id, 
+                title: document.getElementById('plot-title').value, 
+                location: document.getElementById('plot-location').value,
+                startingPrice: parseInt(document.getElementById('plot-start-price').value), 
+                waterHours: document.getElementById('plot-water').value,
+                palmsCount: document.getElementById('plot-palms').value, 
+                posterUrl: document.getElementById('plot-poster').value,
+                videoUrl: document.getElementById('plot-video').value, 
+                startTime: startTimeMs,
+                endTime: endTimeMs, 
+                isActive: true
+            }, { merge: true });
+            
+            const modal = document.getElementById('admin-plot-form');
+            if(modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+            showToast("تم حفظ الجدولة وبيانات القطعة بنجاح");
+        }
+
+        async function handleAddDefaults() {
+            if (!auth.currentUser) return;
+            if(!confirm("إدراج الـ 12 قطعة المحددة؟")) return;
+            const defaults = [
+                { title: "جلبة الشيع الشمالية", water: "2 ساعة" }, { title: "جلبة الشيع الجنوبية", water: "2 ساعة" },
+                { title: "جلبة الكتب", water: "2 ساعة" }, { title: "جلبة الأكفان + وقف البلاد", water: "3 ساعات" },
+                { title: "جلبة الأكفان والمسجد (عيسى)", water: "1 ساعة" }, { title: "جلبة الفروض صوار المذابح", water: "1 ساعة" },
+                { title: "جلبة المدرة عن اللجل", water: "2 ساعة" }, { title: "جلبة المدرة تحت", water: "2 ساعة" },
+                { title: "جلبة بني خليل رقم 1", water: "1 ساعة" }, { title: "جلبة بني خليل رقم 2", water: "1 ساعة" },
+                { title: "جلبة بني خليل رقم 3", water: "1 ساعة" }, { title: "جلبة بني خليل رقم 4", water: "1 ساعة" }
+            ];
+            
+            const nowMs = Date.now();
+            const endMs = nowMs + (7 * 24 * 60 * 60 * 1000); // 7 days default
+            
+            for(let p of defaults) {
+                const id = `plot-${Math.floor(Math.random()*1000000)}`;
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'plots', id), { 
+                    id, title: p.title, location: "بلدة منال", startingPrice: 50, waterHours: p.water, palmsCount: "غير محدد", 
+                    startTime: nowMs, endTime: endMs, isActive: true 
+                });
+            }
+            showToast("تم إدراج جميع القطع بنجاح");
+        }
+
+        // --- View Renderers ---
+
+        function renderPlotsGallery() {
+            const container = document.getElementById('plots-gallery');
+            if (!container) return;
+            container.innerHTML = plots.length === 0 ? `<div class="col-span-full p-20 text-center text-stone-400 font-bold border-4 border-dashed rounded-[40px] text-xl bg-white shadow-inner">لا توجد أراضي معروضة حالياً</div>` : '';
+            
+            const now = Date.now();
+
+            plots.forEach(plot => {
+                const bidsForPlot = allBids.filter(b => b.plotId === plot.id);
+                const highestBid = bidsForPlot.length > 0 ? bidsForPlot[0].amount : plot.startingPrice;
+                
+                // Status Determination
+                const plotStart = plot.startTime || 0; // Fallback for old data
+                const isUpcoming = plot.isActive && plotStart > now;
+                const isClosed = !plot.isActive || plot.endTime <= now;
+                const isOpen = plot.isActive && !isUpcoming && !isClosed;
+
+                let badgeHtml = '';
+                let borderClass = 'border-stone-100 shadow-sm';
+                let timeText = '';
+
+                if (isUpcoming) {
+                    badgeHtml = `<div class="px-3 py-1 rounded-full text-[10px] font-black bg-amber-500 text-white shadow-lg">قادم (لم يبدأ)</div>`;
+                    borderClass = 'border-amber-200 ring-4 ring-amber-500/10 shadow-md';
+                    timeText = `يبدأ: ${formatDate(plot.startTime)}`;
+                } else if (isOpen) {
+                    badgeHtml = `<div class="px-3 py-1 rounded-full text-[10px] font-black bg-emerald-500 text-white animate-pulse shadow-lg">مفتوح</div>`;
+                    borderClass = 'border-emerald-200 ring-8 ring-emerald-500/5 shadow-md';
+                    timeText = `ينتهي: ${formatDate(plot.endTime)}`;
+                } else {
+                    badgeHtml = `<div class="px-3 py-1 rounded-full text-[10px] font-black bg-stone-200 text-stone-500 shadow-sm">مغلق</div>`;
+                    timeText = 'المزاد منتهي';
+                }
+
+                const card = document.createElement('div');
+                card.className = `plot-card bg-white rounded-[40px] border-2 ${borderClass} p-6 cursor-pointer flex flex-col text-right animate-fade-in`;
+                card.onclick = () => { activePlotId = plot.id; updateUIVisibility(); };
+                
+                // --- POSTER SIZE ENHANCED HERE ---
+                const thumb = plot.posterUrl ? `<div class="w-full h-56 rounded-3xl mb-4 bg-contain bg-no-repeat bg-center shadow-inner border border-stone-100 bg-stone-50" style="background-image: url('${plot.posterUrl}')"></div>` : `<div class="bg-emerald-50 p-3 rounded-2xl text-emerald-700 shadow-sm w-fit mb-4"><i class="ph ph-map-pin-line text-2xl"></i></div>`;
+                
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        ${thumb}
+                        ${badgeHtml}
+                    </div>
+                    <h3 class="text-xl font-black text-stone-800 mb-2">${plot.title}</h3>
+                    <div class="grid grid-cols-2 gap-3 mb-6">
+                        <div class="bg-stone-50 p-3 rounded-2xl border border-stone-100 text-center"><p class="text-[9px] text-stone-400 font-black uppercase mb-1">سعر البداية</p><p class="font-black text-stone-700 tabular-nums text-center">${plot.startingPrice.toLocaleString('en-US')} ر.ع</p></div>
+                        <div class="bg-emerald-50 p-3 rounded-2xl border border-emerald-100 text-center"><p class="text-[9px] text-emerald-600 font-black uppercase mb-1 text-center">أعلى مزايدة</p><p class="font-black text-emerald-800 tabular-nums text-center">${highestBid.toLocaleString('en-US')} ر.ع</p></div>
+                    </div>
+                    <div class="mt-auto pt-4 border-t border-stone-100 flex justify-between items-center"><i class="ph ph-arrow-right text-emerald-600 text-xl"></i><div class="text-stone-400 text-[9px] font-bold tracking-tighter">${timeText}</div></div>`;
+                container.appendChild(card);
+            });
+        }
+
+        function renderPlotDetail() {
+            const plot = plots.find(p => p.id === activePlotId);
+            if (!plot) return;
+            const plotBids = allBids.filter(b => b.plotId === plot.id);
+            const highestBid = plotBids.length > 0 ? plotBids[0].amount : plot.startingPrice;
+            
+            const now = Date.now();
+            const plotStart = plot.startTime || 0;
+            const isUpcoming = plot.isActive && plotStart > now;
+            const isClosed = !plot.isActive || plot.endTime <= now;
+            const isOpen = plot.isActive && !isUpcoming && !isClosed;
+
+            const container = document.getElementById('active-plot-content');
+            if (!container) return;
+            
+            const isAuth = localStorage.getItem('is_authenticated') === 'true';
+            const isStaff = appProfile?.isAdmin || appProfile?.isCommittee;
+            const canBid = isAuth && (appProfile?.isActive || isStaff) && isOpen; 
+
+            // --- POSTER DISPLAY ENHANCED HERE ---
+            const posterHtml = plot.posterUrl ? `<img src="${plot.posterUrl}" class="w-full max-h-[600px] object-contain rounded-[32px] shadow-lg mb-8 border-4 border-white bg-stone-50 p-2" alt="بوستر">` : '';
+            const videoEmbed = getYouTubeEmbedUrl(plot.videoUrl);
+            const videoHtml = videoEmbed ? `<div class="video-container mb-8 shadow-2xl ring-4 ring-white"><iframe src="${videoEmbed}" frameborder="0" allowfullscreen></iframe></div>` : '';
+            
+            // Dynamic Bidding Area UI based on State
+            let biddingOverlayHtml = '';
+            if (isClosed) {
+                biddingOverlayHtml = `
+                    <div class="absolute inset-0 bg-white/95 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-8 text-center rounded-[48px]">
+                        <i class="ph ph-lock-simple text-6xl text-stone-300 mb-4 text-center"></i>
+                        <h3 class="text-2xl font-black text-stone-800 mb-2 text-center text-right text-center">المزاد مغلق</h3>
+                        <button onclick="window.goHome()" class="mt-4 bg-emerald-800 text-white px-10 py-3 rounded-2xl font-black shadow-lg hover:bg-emerald-900 transition-all">العودة للأراضي</button>
+                    </div>`;
+            } else if (isUpcoming) {
+                biddingOverlayHtml = `
+                    <div class="absolute inset-0 bg-white/95 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-8 text-center rounded-[48px]">
+                        <i class="ph ph-hourglass-high text-6xl text-amber-500 mb-4 text-center animate-pulse"></i>
+                        <h3 class="text-2xl font-black text-stone-800 mb-2 text-center text-right text-center">لم يفتح المزاد بعد</h3>
+                        <p class="text-stone-500 font-bold mb-6 text-sm">تاريخ الفتح: ${formatDate(plot.startTime)}</p>
+                        <button onclick="window.goHome()" class="bg-stone-800 text-white px-10 py-3 rounded-2xl font-black shadow-lg hover:bg-stone-900 transition-all">تصفح أراضي أخرى</button>
+                    </div>`;
+            }
+
+            container.innerHTML = `
+                <div class="lg:col-span-2 space-y-6 text-right">
+                    ${posterHtml} ${videoHtml}
+                    <div class="bg-white p-8 rounded-[48px] shadow-sm border border-stone-100 animate-fade-in text-right">
+                        <h2 class="text-4xl font-black text-emerald-900 mb-2">${plot.title}</h2>
+                        <p class="text-stone-400 font-bold mb-6 flex items-center justify-end gap-2 text-right">${plot.location} <i class="ph ph-map-pin"></i></p>
+                        <div class="grid grid-cols-3 gap-6 py-6 border-y border-stone-50">
+                            <div class="text-center"><p class="text-xs font-black text-stone-400 mb-1 uppercase text-center">النخيل</p><p class="text-xl font-black text-stone-800 text-center">${plot.palmsCount || '---'}</p></div>
+                            <div class="text-center"><p class="text-xs font-black text-stone-400 mb-1 uppercase text-center">الماء</p><p class="text-xl font-black text-stone-800 text-center">${plot.waterHours || '---'}</p></div>
+                            <div class="text-center"><p class="text-xs font-black text-stone-400 mb-1 uppercase text-center text-center">البداية</p><p class="text-xl font-black text-stone-800 tabular-nums text-center text-center">${plot.startingPrice.toLocaleString('en-US')} ر.ع</p></div>
+                        </div>
+                        <div class="pt-8">
+                            <h4 class="font-black text-stone-700 mb-6 flex items-center justify-end gap-3 text-right">سجل المزايدات <i class="ph ph-clock-counter-clockwise text-2xl"></i></h4>
+                            <div class="space-y-3">
+                                ${plotBids.length === 0 ? '<p class="text-stone-400 py-6 font-bold border-2 border-dashed rounded-3xl text-center">لا توجد مزايدات لهذه القطعة</p>' : 
+                                    plotBids.slice(0, 10).map((b, i) => `
+                                    <div class="flex justify-between items-center p-4 bg-stone-50 rounded-2xl border border-stone-100 shadow-sm animate-fade-in text-right">
+                                        <div class="text-left"><span class="font-black text-emerald-800 block text-lg tabular-nums text-left">${b.amount.toLocaleString('en-US')} ر.ع</span><span class="text-[9px] text-stone-400 font-bold tracking-tighter text-left">${formatDate(b.timestamp)}</span></div>
+                                        <div class="flex items-center gap-3 text-right">
+                                            <span class="font-bold text-stone-700 text-right text-right">${isStaff ? b.name : (currentUser?.uid === b.userId ? 'أنت' : 'مزايد مخفي')}</span>
+                                            <div class="h-8 w-8 rounded-full flex items-center justify-center ${i === 0 ? 'bg-emerald-600 text-white shadow-lg' : 'bg-stone-200 text-stone-500'}"><i class="ph ph-${i === 0 ? 'trophy' : 'user'}"></i></div>
+                                        </div>
+                                    </div>`).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="lg:col-span-1 space-y-6">
+                    <div id="bidding-area-controls" class="bg-white p-8 rounded-[48px] shadow-2xl border border-emerald-50 sticky top-24 overflow-hidden relative">
+                        ${biddingOverlayHtml}
+                        <p class="text-stone-400 text-center text-[10px] font-black uppercase tracking-widest text-center">أعلى مزايدة حالية</p>
+                        <div class="text-5xl font-black text-emerald-800 text-center mb-8 tabular-nums text-center text-center">${highestBid.toLocaleString('en-US')} <small class="text-xl font-normal opacity-40">ر.ع</small></div>
+                        ${canBid ? `
+                            <div class="space-y-6 text-center text-center">
+                                <div class="flex items-center justify-between bg-stone-50 rounded-3xl border-2 border-stone-100 p-2 shadow-inner">
+                                    <button onclick="window.modBid(-5)" class="h-16 w-16 bg-white rounded-2xl shadow-sm border border-stone-200 text-3xl font-black hover:bg-stone-100 transition-all">-</button>
+                                    <div class="text-center flex-1 text-center"><span id="detail-bid-val" class="text-4xl font-black text-emerald-900 tabular-nums text-center text-center">${(highestBid + 5).toLocaleString('en-US')}</span></div>
+                                    <button onclick="window.modBid(5)" class="h-16 w-16 bg-emerald-600 text-white rounded-2xl shadow-lg text-3xl font-black hover:bg-emerald-700 transition-all">+</button>
+                                </div>
+                                <button onclick="window.submitDetailBid()" class="w-full bg-emerald-800 text-white font-black py-6 rounded-[30px] shadow-2xl transition-all transform active:scale-95 text-2xl text-center">تأكيد المزايدة</button>
+                                <p class="text-[9px] text-stone-400 font-bold px-4 leading-relaxed italic text-center text-center">يقر المزايد بمسؤوليتة القانونية والمالية الكاملة عند رسو المزايدة علية وفق الأنظمة.</p>
+                            </div>` : `<div class="text-center space-y-4 text-center text-center"><p class="text-red-500 font-black text-sm text-center text-center">حسابك غير مفعل للمزايدة حالياً</p></div>`}
+                    </div>
+                </div>`;
+            window.localBidVal = highestBid + 5;
+            updateCountdownUI();
+        }
+
+        function renderAdminPanel() {
+            const isAdmin = appProfile?.isAdmin;
+            const isCommittee = appProfile?.isCommittee;
+            if (!isAdmin && !isCommittee) return;
+            const tabs = ['tab-plots', 'tab-users', 'tab-add-manual', 'tab-settings'];
+            const containers = ['admin-plots-list', 'admin-users-list', 'admin-manual-form', 'admin-auction-settings'];
+            if (isCommittee && !isAdmin) {
+                adminTab = 'tab-plots';
+                tabs.forEach(t => { const el = document.getElementById(t); if(el) el.classList.toggle('hidden', t !== 'tab-plots'); });
+            } else {
+                tabs.forEach(t => { const el = document.getElementById(t); if(el) el.classList.remove('hidden'); });
+            }
+            tabs.forEach(t => { const el = document.getElementById(t); if(el) { el.classList.toggle('bg-emerald-600', adminTab === t); el.classList.toggle('text-white', adminTab === t); } });
+            containers.forEach((c, idx) => { const el = document.getElementById(c); if(el) el.classList.toggle('hidden', adminTab !== tabs[idx]); });
+            if (adminTab === 'tab-plots') {
+                const grid = document.getElementById('admin-plots-grid');
+                if (grid) grid.innerHTML = plots.map(plot => `<div class="bg-white p-6 rounded-3xl border border-stone-200 shadow-sm text-right animate-fade-in text-right text-right"><div class="flex justify-between items-start mb-4 text-right text-right"><h4 class="font-black text-lg text-emerald-900 text-right text-right">${plot.title}</h4>${isAdmin ? `<div class="flex gap-1 text-right text-right"><button onclick="window.editPlot('${plot.id}')" class="p-2 text-stone-300 hover:text-emerald-600 transition-all text-right"><i class="ph ph-pencil-simple text-xl"></i></button><button onclick="window.deletePlot('${plot.id}')" class="p-2 text-stone-300 hover:text-red-600 transition-all text-right"><i class="ph ph-trash text-xl"></i></button></div>` : ''}</div><div class="flex gap-2 pt-4 border-t border-stone-50 text-right text-right"><button onclick="window.downloadPDF('${plot.id}')" class="bg-emerald-100 text-emerald-800 px-4 py-2 rounded-xl text-[10px] font-black border border-emerald-200 hover:bg-emerald-200 flex items-center gap-2 transition-all shadow-sm text-right"><i class="ph ph-file-pdf"></i> تقرير PDF</button>${isAdmin ? `<button onclick="window.togglePlotStatus('${plot.id}', ${plot.isActive})" class="flex-1 px-4 py-2 rounded-xl text-[10px] font-black shadow-sm ${plot.isActive ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-emerald-600 text-white'} transition-all text-center text-center">${plot.isActive ? 'إغلاق المزاد' : 'فتح المزاد'}</button>` : ''}</div></div>`).join('');
+            } else if (adminTab === 'tab-users' && isAdmin) {
+                const list = document.getElementById('admin-users-list');
+                if (list) list.innerHTML = usersList.filter(u => !u.isAdmin).map(u => `<div class="flex justify-between items-center p-5 bg-white rounded-3xl border border-stone-200 mb-2 shadow-sm text-right animate-fade-in text-right text-right"><div class="text-right text-right"><div><div class="flex items-center gap-2 justify-end text-right text-right">${u.isCommittee ? '<span class="bg-blue-100 text-blue-800 text-[9px] px-2 py-0.5 rounded font-black uppercase text-center text-center text-center">لجنة</span>' : ''}<p class="font-black text-stone-800 text-lg text-right font-bold text-right text-right">${u.name}</p></div><p class="text-xs font-bold text-stone-400 tracking-wider tabular-nums text-right font-bold" dir="ltr">${u.phone} ${u.password ? ' - السر: ' + u.password : ''}</p></div></div><div class="flex gap-2 text-right text-right text-right text-right text-right">${!u.isActive ? `<button onclick="window.activateUser('${u.id}')" class="bg-emerald-600 text-white px-6 py-2 rounded-2xl text-xs font-black shadow-md hover:bg-emerald-700 transition-all text-center text-center text-center">تفعيل</button>` : `<div class="flex gap-2 text-right text-right text-right text-right text-right"><button onclick="window.updatePassword('${u.id}')" class="bg-blue-50 text-blue-600 p-3 rounded-2xl border border-blue-100 hover:bg-blue-100 transition-all shadow-sm text-center text-center text-center"><i class="ph ph-key text-center"></i></button><button onclick="window.toggleCommittee('${u.id}', ${u.isCommittee})" class="p-3 rounded-2xl border ${u.isCommittee ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-stone-50 text-stone-500'} transition-all shadow-sm text-center text-center text-center">${u.isCommittee ? '<i class="ph ph-user-minus text-center"></i>' : '<i class="ph ph-users-three text-center"></i>'}</button><button onclick="window.sendWhatsApp('${u.phone}', '${u.name}', '${u.password}')" class="bg-green-500 text-white p-3 rounded-2xl shadow-sm hover:bg-green-600 transition-all text-center text-center text-center text-center"><i class="ph ph-whatsapp-logo text-xl text-center"></i></button></div>`}<button onclick="window.deleteUser('${u.id}')" class="text-stone-200 hover:text-red-500 p-3 transition-all text-center text-center text-center text-center"><i class="ph ph-trash text-xl text-center"></i></button></div></div>`).join('');
+            }
+        }
+
+        // --- Data Sync Engine ---
+
+        function setupPublicListeners() {
+            if (!auth.currentUser) return; 
+            
+            if (!unsubPlots) {
+                unsubPlots = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'plots'), (snap) => {
+                    plots = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    updateUIVisibility();
+                }, (err) => console.error("Plots Error", err));
+            }
+            
+            if (!unsubBids) {
+                unsubBids = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'bids'), (snap) => {
+                    allBids = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => b.amount - a.amount);
+                    updateUIVisibility();
+                }, (err) => console.error("Bids Error", err));
+            }
+
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(updateCountdownUI, 1000);
+            updateCountdownUI();
+        }
+
+        function setupProfileListener(uid) {
+            if (!auth.currentUser || !uid) return; 
+            
+            if (unsubProfile) unsubProfile(); // Clear previous
+            
+            unsubProfile = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'users', uid), (snap) => {
+                appProfile = snap.exists() ? snap.data() : null;
+                updateUIVisibility();
+                
+                const l = document.getElementById('loading-overlay'); 
+                if(l) { l.classList.add('opacity-0'); setTimeout(() => l.style.display = 'none', 500); }
+                
+                // Admin Users Listener
+                if (appProfile?.isAdmin) {
+                    if (!unsubUsers) {
+                        unsubUsers = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'users'), (snap) => {
+                            usersList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                            renderAdminPanel();
+                        }, (err) => console.error("Users Error", err));
+                    }
+                } else {
+                    if (unsubUsers) { unsubUsers(); unsubUsers = null; }
+                }
+            }, (err) => { 
+                console.error("Profile Error", err); 
+                const l = document.getElementById('loading-overlay'); if(l) l.style.display = 'none';
+            });
+        }
+
+        function initListeners() {
+            bindClick('tab-plots', () => { adminTab = 'tab-plots'; renderAdminPanel(); });
+            bindClick('tab-users', () => { adminTab = 'tab-users'; renderAdminPanel(); });
+            bindClick('tab-settings', () => { adminTab = 'tab-settings'; renderAdminPanel(); });
+            bindClick('tab-add-manual', () => { adminTab = 'tab-add-manual'; renderAdminPanel(); });
+            bindClick('btn-show-register', () => setAuthView('register'));
+            bindClick('btn-show-login', () => setAuthView('login'));
+            bindClick('btn-show-login-alt', () => setAuthView('login'));
+            bindClick('btn-pending-to-login', () => {
+                localStorage.removeItem('guest_auction_uid'); 
+                localStorage.removeItem('is_authenticated');
+                appProfile = null; 
+                setAuthView('login'); 
+            });
+            bindClick('btn-cancel-reg', () => { 
+                localStorage.removeItem('guest_auction_uid'); 
+                window.location.reload(); 
+            });
+            bindClick('btn-back-to-gallery', () => { activePlotId = null; updateUIVisibility(); });
+            bindClick('btn-dashboard-home', () => { activePlotId = null; updateUIVisibility(); });
+            bindClick('btn-show-admin-login', () => { const modal = document.getElementById('admin-login-modal'); if(modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }});
+            bindClick('btn-cancel-admin-login', () => { const modal = document.getElementById('admin-login-modal'); if(modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }});
+            
+            // Logout
+            bindClick('btn-user-logout', async () => { 
+                try {
+                    await signOut(auth); 
+                    localStorage.removeItem('guest_auction_uid'); 
+                    localStorage.removeItem('is_authenticated'); 
+                    window.location.reload(); 
+                } catch (error) {
+                    console.error("Logout Error:", error);
+                    showToast("حدث خطأ أثناء تسجيل الخروج", "error");
+                }
+            });
+            
+            bindClick('btn-close-plot-form', () => { const modal = document.getElementById('admin-plot-form'); if(modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }});
+            bindClick('btn-add-default-plots', handleAddDefaults);
+            const fReg = document.getElementById('form-register'); if(fReg) fReg.onsubmit = handleRegister;
+            const fLog = document.getElementById('form-login'); if(fLog) fLog.onsubmit = handleLogin;
+            const fAdm = document.getElementById('form-admin-login'); if(fAdm) fAdm.onsubmit = handleAdminLogin;
+            const fMan = document.getElementById('form-manual-add'); if(fMan) fMan.onsubmit = handleManualAdd;
+            const fPlo = document.getElementById('form-plot-save'); if(fPlo) fPlo.onsubmit = handlePlotSave;
+            bindClick('btn-open-add-plot', () => { 
+                const f = document.getElementById('form-plot-save'); if(f) f.reset();
+                const pid = document.getElementById('plot-id'); if(pid) pid.value = '';
+                // Set default start time to NOW for new plots
+                const startInput = document.getElementById('plot-start-datetime');
+                if(startInput) {
+                    const d = new Date();
+                    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+                    startInput.value = d.toISOString().slice(0, 16);
+                }
+                const modal = document.getElementById('admin-plot-form'); if(modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+            });
+        }
+
+        // --- Window Exports ---
+        window.goHome = () => { activePlotId = null; updateUIVisibility(); };
+        window.modBid = (val) => {
+            const plot = plots.find(p => p.id === activePlotId);
+            const bidsForPlot = allBids.filter(b => b.plotId === activePlotId);
+            const highest = bidsForPlot.length > 0 ? bidsForPlot[0].amount : plot.startingPrice;
+            if (window.localBidVal + val >= highest + 5) { window.localBidVal += val; const el = document.getElementById('detail-bid-val'); if(el) el.textContent = window.localBidVal.toLocaleString('en-US'); }
+        };
+        window.submitDetailBid = async () => {
+            const plot = plots.find(p => p.id === activePlotId);
+            if (!plot) return;
+            const now = Date.now();
+            if (plot.startTime && plot.startTime > now) return showToast("المزاد لم يفتح بعد", "error");
+            if (plot.endTime && plot.endTime <= now) return showToast("المزاد مغلق", "error");
+            
+            if (!appProfile?.isActive && !appProfile?.isAdmin && !appProfile?.isCommittee) return showToast("حسابك غير مفعل للمزايدة", "error");
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'bids'), { plotId: activePlotId, amount: window.localBidVal, userId: localStorage.getItem('guest_auction_uid'), name: appProfile.name, phone: appProfile.phone, timestamp: serverTimestamp() });
+            showToast("تمت المزايدة بنجاح!");
+        };
+        window.togglePlotStatus = async (id, cur) => { if (!auth.currentUser) return; await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'plots', id), { isActive: !cur }); };
+        window.deletePlot = async (id) => { if (!auth.currentUser) return; if (confirm("حذف الأرض؟")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'plots', id)); };
+        window.editPlot = (id) => {
+            const p = plots.find(x => x.id === id);
+            document.getElementById('plot-id').value = p.id;
+            document.getElementById('plot-title').value = p.title;
+            document.getElementById('plot-location').value = p.location;
+            document.getElementById('plot-start-price').value = p.startingPrice;
+            document.getElementById('plot-water').value = p.waterHours || '1 ساعة';
+            document.getElementById('plot-palms').value = p.palmsCount || 'غير محدد';
+            document.getElementById('plot-poster').value = p.posterUrl || '';
+            document.getElementById('plot-video').value = p.videoUrl || '';
+            
+            // Format datetime for local input
+            const startTime = p.startTime || Date.now();
+            const d = new Date(startTime);
+            d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+            document.getElementById('plot-start-datetime').value = d.toISOString().slice(0, 16);
+            
+            // Calculate duration in days
+            const durationMs = (p.endTime || Date.now()) - startTime;
+            const durationDays = durationMs > 0 ? durationMs / (1000 * 60 * 60 * 24) : 7;
+            document.getElementById('plot-duration-days').value = durationDays;
+
+            const modal = document.getElementById('admin-plot-form');
+            if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+        };
+        window.downloadPDF = (pid) => {
+            const p = plots.find(x => x.id === pid);
+            const pbids = allBids.filter(b => b.plotId === pid);
+            document.getElementById('rep-plot-name').textContent = `القطعة: ${p.title}`;
+            document.getElementById('rep-date').textContent = `تاريخ التقرير: ${new Date().toLocaleString('ar-OM')}`;
+            document.getElementById('rep-table-body').innerHTML = pbids.map((b, i) => `<tr><td>${i+1}</td><td>${b.name}</td><td>${b.phone}</td><td style="font-weight:900">${b.amount.toLocaleString('en-US')}</td><td>${formatDate(b.timestamp)}</td></tr>`).join('');
+            const el = document.getElementById('report-template'); el.style.display = 'block';
+            html2pdf().from(el).set({ margin: 10, filename: `تقرير_${p.title}.pdf`, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }).save().then(() => el.style.display='none');
+        };
+        window.activateUser = async (id) => {
+            if (!auth.currentUser) return;
+            const activeUsers = usersList.filter(u => u.isActive && u.password);
+            const lastPass = activeUsers.length > 0 ? Math.max(...activeUsers.map(u => parseInt(u.password) || 0)) : 1000;
+            const newPass = (lastPass + 1).toString();
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', id), { isActive: true, password: newPass });
+            const u = usersList.find(x => x.id === id); if(u) window.sendWhatsApp(u.phone, u.name, newPass);
+        };
+        window.updatePassword = async (id) => { if (!auth.currentUser) return; const pwd = prompt("رقم سري جديد:"); if (!pwd) return; await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', id), { password: pwd.trim() }); showToast("تم تحديث السر"); };
+        window.toggleCommittee = async (id, cur) => { if (!auth.currentUser) return; await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', id), { isCommittee: !cur }); };
+        window.deleteUser = async (id) => { if (!auth.currentUser) return; if (confirm("حذف؟")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', id)); };
+        window.sendWhatsApp = (phone, name, password) => {
+            const clean = phone.replace(/\D/g, ''); const phoneW = clean.length === 8 ? '968' + clean : clean;
+            const msg = `مرحباً الفاضل/ ${name}،%0Aتم تفعيل عضويتك للمزايدة بنجاح.%0A%0Aبيانات الدخول:%0Aرقم الهاتف: ${phone}%0Aالرقم السري: ${password}%0A%0Aالرابط المباشر:%0A${window.location.href}%0A%0Aيتحمل المزايد المسؤولية القانونية الكاملة عند رسو المزايدة عليه.`;
+            window.open(`https://wa.me/${phoneW}?text=${msg}`, '_blank');
+        };
+
+        // --- Core Bootstrapper ---
+        (async function startApp() {
+            initListeners();
+            try {
+                await signInAnonymously(auth);
+                
+                onAuthStateChanged(auth, async (u) => {
+                    if (u) {
+                        currentUser = u;
+                        const localUid = localStorage.getItem('guest_auction_uid');
+                        
+                        setupPublicListeners(); 
+                        
+                        if (localUid) {
+                            setupProfileListener(localUid);
+                        } else {
+                            appProfile = null;
+                            updateUIVisibility();
+                            const l = document.getElementById('loading-overlay'); 
+                            if(l) { l.classList.add('opacity-0'); setTimeout(() => l.style.display = 'none', 500); }
+                        }
+                    }
+                });
+            } catch (e) {
+                console.error("Auth Error:", e);
+                const lTxt = document.getElementById('loading-text');
+                if(lTxt) lTxt.textContent = "يرجى التحقق من صلاحيات Firebase (Rules)";
+                const errDisplay = document.getElementById('error-display');
+                if(errDisplay){ errDisplay.textContent = e.message; errDisplay.classList.remove('hidden'); }
+            }
+        })();
+
+    </script>
+</body>
+</html>
