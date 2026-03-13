@@ -1077,7 +1077,32 @@
                 const list = document.getElementById('admin-users-list');
                 if (list) {
                     const headerHtml = `<div class="flex justify-between items-center mb-4"><h3 class="font-black text-emerald-900 text-lg">قائمة الأعضاء المعتمدين والمسجلين</h3><button onclick="window.downloadUsersPDF()" class="bg-blue-100 text-blue-800 px-4 py-2 rounded-xl text-xs font-black border border-blue-200 hover:bg-blue-300 flex items-center gap-2 transition-all shadow-sm"><i class="ph ph-printer"></i> طباعة بيانات الأعضاء</button></div>`;
-                    const usersHtml = usersList.filter(u => !u.isAdmin).map(u => `<div class="flex justify-between items-center p-5 bg-white rounded-3xl border border-stone-200 mb-2 shadow-sm text-right animate-fade-in text-right text-right"><div class="text-right text-right"><div><div class="flex items-center gap-2 justify-end text-right text-right">${u.isCommittee ? '<span class="bg-blue-100 text-blue-800 text-[9px] px-2 py-0.5 rounded font-black uppercase text-center text-center text-center">لجنة</span>' : ''}<p class="font-black text-stone-800 text-lg text-right font-bold text-right text-right">${u.name}</p></div><p class="text-xs font-bold text-stone-400 tracking-wider tabular-nums text-right font-bold" dir="ltr">${u.phone} ${u.password ? ' - السر: ' + u.password : ''}</p></div></div><div class="flex gap-2 text-right text-right text-right text-right text-right">${!u.isActive ? `<button onclick="window.activateUser('${u.id}')" class="bg-emerald-600 text-white px-6 py-2 rounded-2xl text-xs font-black shadow-md hover:bg-emerald-700 transition-all text-center text-center text-center">تفعيل</button>` : `<div class="flex gap-2 text-right text-right text-right text-right text-right"><button onclick="window.updatePassword('${u.id}')" class="bg-blue-50 text-blue-600 p-3 rounded-2xl border border-blue-100 hover:bg-blue-100 transition-all shadow-sm text-center text-center text-center"><i class="ph ph-key text-center"></i></button><button onclick="window.toggleCommittee('${u.id}', ${u.isCommittee})" class="p-3 rounded-2xl border ${u.isCommittee ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-stone-50 text-stone-500'} transition-all shadow-sm text-center text-center text-center">${u.isCommittee ? '<i class="ph ph-user-minus text-center"></i>' : '<i class="ph ph-users-three text-center"></i>'}</button><button onclick="window.sendWhatsApp('${u.phone}', '${u.name}', '${u.password}')" class="bg-green-500 text-white p-3 rounded-2xl shadow-sm hover:bg-green-600 transition-all text-center text-center text-center text-center"><i class="ph ph-whatsapp-logo text-xl text-center"></i></button></div>`}<button onclick="window.deleteUser('${u.id}')" class="text-stone-200 hover:text-red-500 p-3 transition-all text-center text-center text-center text-center"><i class="ph ph-trash text-xl text-center"></i></button></div></div>`).join('');
+                    const usersHtml = usersList.filter(u => !u.isAdmin).map(u => `
+                        <div class="flex justify-between items-center p-5 bg-white rounded-3xl border border-stone-200 mb-2 shadow-sm text-right animate-fade-in text-right text-right">
+                            <div class="text-right text-right">
+                                <div>
+                                    <div class="flex items-center gap-2 justify-end text-right text-right">
+                                        ${u.isCommittee ? '<span class="bg-blue-100 text-blue-800 text-[9px] px-2 py-0.5 rounded font-black uppercase text-center text-center text-center">لجنة</span>' : ''}
+                                        <p class="font-black text-stone-800 text-lg text-right font-bold text-right text-right">${u.name}</p>
+                                    </div>
+                                    <p class="text-xs font-bold text-stone-400 tracking-wider tabular-nums text-right font-bold" dir="ltr">${u.phone} ${u.password ? ' - السر: ' + u.password : ''}</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-2 text-right text-right text-right text-right text-right">
+                                ${!u.isActive ? `
+                                    <button onclick="window.activateUser('${u.id}')" class="bg-emerald-600 text-white px-6 py-2 rounded-2xl text-xs font-black shadow-md hover:bg-emerald-700 transition-all text-center text-center text-center">تفعيل</button>
+                                ` : `
+                                    <div class="flex gap-2 text-right text-right text-right text-right text-right">
+                                        <button onclick="window.updatePassword('${u.id}')" class="bg-blue-50 text-blue-600 p-3 rounded-2xl border border-blue-100 hover:bg-blue-100 transition-all shadow-sm text-center text-center text-center"><i class="ph ph-key text-center"></i></button>
+                                        <button onclick="window.toggleCommittee('${u.id}', ${u.isCommittee})" class="p-3 rounded-2xl border ${u.isCommittee ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-stone-50 text-stone-500'} transition-all shadow-sm text-center text-center text-center">${u.isCommittee ? '<i class="ph ph-user-minus text-center"></i>' : '<i class="ph ph-users-three text-center"></i>'}</button>
+                                        <button onclick="window.sendWinnerWhatsApp('${u.phone}', '${u.name}')" class="bg-amber-400 text-amber-900 p-3 rounded-2xl shadow-sm hover:bg-amber-500 transition-all text-center text-center text-center text-center" title="تبشير الفائز"><i class="ph ph-trophy text-xl text-center"></i></button>
+                                        <button onclick="window.sendWhatsApp('${u.phone}', '${u.name}', '${u.password}')" class="bg-green-500 text-white p-3 rounded-2xl shadow-sm hover:bg-green-600 transition-all text-center text-center text-center text-center" title="رسالة التفعيل"><i class="ph ph-whatsapp-logo text-xl text-center"></i></button>
+                                    </div>
+                                `}
+                                <button onclick="window.deleteUser('${u.id}')" class="text-stone-200 hover:text-red-500 p-3 transition-all text-center text-center text-center text-center"><i class="ph ph-trash text-xl text-center"></i></button>
+                            </div>
+                        </div>
+                    `).join('');
                     list.innerHTML = headerHtml + usersHtml;
                 }
             } else if (adminTab === 'tab-settings' && isAdmin) {
@@ -1325,9 +1350,16 @@
         window.updatePassword = async (id) => { if (!auth.currentUser) return; const pwd = prompt("رقم سري جديد:"); if (!pwd) return; await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', id), { password: pwd.trim() }); showToast("تم تحديث السر"); };
         window.toggleCommittee = async (id, cur) => { if (!auth.currentUser) return; await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', id), { isCommittee: !cur }); };
         window.deleteUser = async (id) => { if (!auth.currentUser) return; if (confirm("حذف؟")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', id)); };
+        
         window.sendWhatsApp = (phone, name, password) => {
             const clean = phone.replace(/\D/g, ''); const phoneW = clean.length === 8 ? '968' + clean : clean;
             const msg = `مرحباً الفاضل/ ${name}،%0Aتم تفعيل عضويتك للمزايدة بنجاح.%0A%0Aبيانات الدخول:%0Aرقم الهاتف: ${phone}%0Aالرقم السري: ${password}%0A%0Aالرابط المباشر:%0A${window.location.href}%0A%0Aيتحمل المزايد المسؤولية القانونية الكاملة عند رسو المزايدة عليه.`;
+            window.open(`https://wa.me/${phoneW}?text=${msg}`, '_blank');
+        };
+
+        window.sendWinnerWhatsApp = (phone, name) => {
+            const clean = phone.replace(/\D/g, ''); const phoneW = clean.length === 8 ? '968' + clean : clean;
+            const msg = `نبارك لك الفاضل/ ${name}،%0Aرسو المزايدة عليك.%0A%0Aيرجى التواصل مع لجنة الأوقاف لتوقيع العقد والالتزام التام بما جاء فيه من شروط وأحكام.%0A%0Aشاكرين لكم تعاونكم.`;
             window.open(`https://wa.me/${phoneW}?text=${msg}`, '_blank');
         };
 
