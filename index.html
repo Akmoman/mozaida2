@@ -25,15 +25,14 @@
         .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
 
         @keyframes marqueeRTL {
-            0% { transform: translate(-100vw, -50%); } /* يبدأ من أقصى اليسار */
-            100% { transform: translate(100%, -50%); } /* ينتهي عند أقصى اليمين */
+            0% { transform: translate(-100vw, -50%); } 
+            100% { transform: translate(100%, -50%); } 
         }
         .animate-marquee-rtl {
-            /* زيادة المدة لجعله أبطأ (35 ثانية بدلاً من 25) */
             animation: marqueeRTL 35s linear infinite;
             will-change: transform;
-            display: inline-block; /* ضروري لضمان حركة صحيحة للنصوص الطويلة */
-            padding-right: 100vw; /* مسافة بادئة لضمان دخول النص من خارج الشاشة */
+            display: inline-block; 
+            padding-right: 100vw; 
         }
 
         .plot-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
@@ -81,7 +80,7 @@
             background-size: 1em;
         }
         input[type="datetime-local"]::-webkit-calendar-picker-indicator {
-            opacity: 0; /* Hide default icon */
+            opacity: 0; 
         }
     </style>
 </head>
@@ -967,17 +966,27 @@
                             </div>
                             <div class="space-y-3">
                                 ${plotBids.length === 0 ? '<p class="text-stone-400 py-6 font-bold border-2 border-dashed rounded-3xl text-center">لا توجد مزايدات لهذه القطعة</p>' : 
-                                    plotBids.slice(0, 10).map((b, i) => `
+                                    plotBids.slice(0, 10).map((b, i) => {
+                                        const isMe = localStorage.getItem('guest_auction_uid') === b.userId;
+                                        return `
                                     <div class="flex justify-between items-center p-4 bg-stone-50 rounded-2xl border border-stone-100 shadow-sm animate-fade-in text-right">
                                         <div class="flex items-center gap-4">
                                             ${appProfile?.isAdmin ? `<button onclick="window.deleteBid('${b.id}')" class="text-red-400 hover:text-red-600 transition-colors p-2 bg-red-50 rounded-full shadow-sm" title="حذف المزايدة"><i class="ph ph-x font-bold"></i></button>` : ''}
                                             <div class="text-left"><span class="font-black text-emerald-800 block text-lg tabular-nums text-left">${b.amount.toLocaleString('en-US')} ر.ع</span><span class="text-[9px] text-stone-400 font-bold tracking-tighter text-left">${formatDate(b.timestamp)}</span></div>
                                         </div>
                                         <div class="flex items-center gap-3 text-right">
-                                            <span class="font-bold text-stone-700 text-right text-right">${isStaff ? b.name : (currentUser?.uid === b.userId ? 'أنت' : 'مزايد مخفي')}</span>
-                                            <div class="h-8 w-8 rounded-full flex items-center justify-center ${i === 0 ? 'bg-emerald-600 text-white shadow-lg' : 'bg-stone-200 text-stone-500'}"><i class="ph ph-${i === 0 ? 'trophy' : 'user'}"></i></div>
+                                            <div class="flex flex-col items-end">
+                                                <div class="flex items-center gap-2">
+                                                    ${isMe ? '<span class="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-black animate-pulse shadow-sm">مزايدتك هنا</span>' : ''}
+                                                    <span class="font-bold text-stone-700 text-right">${isStaff ? b.name : (isMe ? 'أنت' : 'مزايد مخفي')}</span>
+                                                </div>
+                                                <span class="text-[10px] font-black mt-1 ${i === 0 ? 'text-amber-600' : 'text-stone-400'}">المركز ${i + 1}</span>
+                                            </div>
+                                            <div class="h-10 w-10 min-w-[40px] rounded-full flex items-center justify-center font-black text-lg ${i === 0 ? 'bg-amber-400 text-amber-900 shadow-md ring-2 ring-amber-200' : i === 1 ? 'bg-stone-300 text-stone-700' : i === 2 ? 'bg-orange-300 text-orange-900' : 'bg-stone-200 text-stone-500'}">
+                                                ${i === 0 ? '<i class="ph ph-trophy"></i>' : i + 1}
+                                            </div>
                                         </div>
-                                    </div>`).join('')}
+                                    </div>`}).join('')}
                             </div>
                         </div>
                     </div>
