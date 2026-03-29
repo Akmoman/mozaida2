@@ -994,7 +994,8 @@
                 <div class="lg:col-span-1 space-y-6">
                     
                     <!-- NEW: Moved HUD Countdown into the panel and embedded it at top -->
-                    <div id="countdown-container" class="countdown-box border-b-4 border-emerald-900 shadow-xl hidden sticky top-24 z-20">
+                    <div id="countdown-container" class="countdown-box border-b-4 border-emerald-900 shadow-xl hidden sticky top-24 z-20 relative">
+                        ${plot.extendedCount ? `<div class="bg-amber-400 text-amber-900 text-[10px] font-black px-3 py-1 rounded-full absolute -top-3 -left-3 shadow-lg animate-pulse border border-amber-200">تم التمديد (${plot.extendedCount})</div>` : ''}
                         <p id="countdown-label" class="text-[9px] font-bold uppercase tracking-widest opacity-70 mb-2 text-center text-white">المتبقي</p>
                         <div class="flex justify-center items-center gap-2 text-xl font-black tabular-nums text-white" dir="ltr">
                             <div class="flex flex-col items-center bg-black/20 px-3 py-1.5 rounded-lg min-w-[50px]">
@@ -1295,8 +1296,38 @@
             if (plot.endTime && plot.endTime <= now) return showToast("المزاد مغلق", "error");
             
             if (!appProfile?.isActive && !appProfile?.isAdmin && !appProfile?.isCommittee) return showToast("حسابك غير مفعل للمزايدة", "error");
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'bids'), { plotId: activePlotId, amount: window.localBidVal, userId: localStorage.getItem('guest_auction_uid'), name: appProfile.name, phone: appProfile.phone, timestamp: serverTimestamp() });
-            showToast("تمت المزايدة بنجاح!");
+            
+            try {
+                const currentUserId = localStorage.getItem('guest_auction_uid');
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'bids'), { plotId: activePlotId, amount: window.localBidVal, userId: currentUserId, name: appProfile.name, phone: appProfile.phone, timestamp: serverTimestamp() });
+                
+                // حساب عدد المزايدين المختلفين لهذه القطعة
+                const plotBids = allBids.filter(b => b.plotId === activePlotId);
+                const uniqueBidders = new Set(plotBids.map(b => b.userId));
+                uniqueBidders.add(currentUserId); 
+                
+                // نظام التمديد التلقائي المستمر للمزاد (Anti-Sniping)
+                const ONE_HOUR = 60 * 60 * 1000; 
+                const ONE_DAY = 24 * 60 * 60 * 1000; 
+                const timeLeft = plot.endTime - now;
+                
+                // التمديد يحدث فقط إذا كان الوقت المتبقي أقل من ساعة وهناك تنافس (أكثر من شخص)
+                if (timeLeft > 0 && timeLeft <= ONE_HOUR && uniqueBidders.size > 1) {
+                    const newEndTime = plot.endTime + ONE_DAY;
+                    const newExtCount = (plot.extendedCount || 0) + 1; // زيادة عداد التمديدات
+
+                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'plots', plot.id), { 
+                        endTime: newEndTime,
+                        extendedCount: newExtCount
+                    });
+                    showToast(`تمت المزايدة! وتم تمديد المزاد 24 ساعة إضافية (تمديد رقم ${newExtCount}) لوجود تنافس.`);
+                } else {
+                    showToast("تمت المزايدة بنجاح!");
+                }
+            } catch(e) {
+                console.error("Bid error:", e);
+                showToast("حدث خطأ أثناء إرسال المزايدة", "error");
+            }
         };
         window.togglePlotStatus = async (id, cur) => { if (!auth.currentUser) return; await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'plots', id), { isActive: !cur }); };
         window.deletePlot = async (id) => { if (!auth.currentUser) return; if (confirm("حذف الأرض؟")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'plots', id)); };
