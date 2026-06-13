@@ -1296,18 +1296,19 @@
                 const uniqueBidders = new Set(plotBids.map(b => b.userId));
                 uniqueBidders.add(currentUserId); 
                 
-                const EXTENSION_TIME = 60 * 60 * 1000; // ساعة واحدة بالمللي ثانية
+                const TRIGGER_TIME = 30 * 60 * 1000; // نصف ساعة بالمللي ثانية
+                const EXTENSION_DURATION = 2 * 60 * 60 * 1000; // ساعتين بالمللي ثانية
                 const timeLeft = plot.endTime - now;
                 
-                if (timeLeft > 0 && timeLeft <= EXTENSION_TIME && uniqueBidders.size > 1) {
-                    const newEndTime = plot.endTime + EXTENSION_TIME;
+                if (timeLeft > 0 && timeLeft <= TRIGGER_TIME && uniqueBidders.size > 1) {
+                    const newEndTime = plot.endTime + EXTENSION_DURATION;
                     const newExtCount = (plot.extendedCount || 0) + 1; 
 
                     await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'plots', plot.id), { 
                         endTime: newEndTime,
                         extendedCount: newExtCount
                     });
-                    showToast(`تمت المزايدة! وتم تمديد المزاد 1 ساعة إضافية (تمديد رقم ${newExtCount}) لوجود تنافس.`);
+                    showToast(`تمت المزايدة! وتم تمديد المزاد ساعتين إضافيتين (تمديد رقم ${newExtCount}) لوجود تنافس في آخر نصف ساعة.`);
                 } else {
                     showToast("تمت المزايدة بنجاح!");
                 }
